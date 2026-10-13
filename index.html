@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Label Check</title>
+<style>
+:root{--bg:#f6f8f5;--ink:#13302a;--mute:#5d6f69;--card:#fff;--line:#d9e2dd;--red:#c8372d;--yel:#c98f0a;--grn:#2c8a55;--unk:#8a9690;--btn:#13302a;--btnt:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a17;--ink:#e6efeb;--mute:#9db0a9;--card:#17261f;--line:#2a3d36;--btn:#e6efeb;--btnt:#0f1a17}}
+:root[data-theme="dark"]{--bg:#0f1a17;--ink:#e6efeb;--mute:#9db0a9;--card:#17261f;--line:#2a3d36;--btn:#e6efeb;--btnt:#0f1a17}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+h1{font:700 30px/1.15 Georgia,"Times New Roman",serif;margin:8px 0 6px}
+h2{font:700 19px/1.3 Georgia,serif;margin:0 0 8px}
+p{margin:0 0 12px}.mute{color:var(--mute);font-size:14px}
+.seg{display:flex;gap:8px;margin:16px 0 12px}
+.seg button{flex:1;padding:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;font:600 16px system-ui;cursor:pointer}
+.seg button[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+textarea{width:100%;min-height:120px;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:16px/1.4 system-ui;resize:vertical}
+.row{display:flex;gap:8px;margin-top:10px}
+.go{flex:1;padding:14px;border:0;border-radius:12px;background:var(--btn);color:var(--btnt);font:700 16px system-ui;cursor:pointer}
+.ghost{padding:14px;border:1.5px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:600 15px system-ui;cursor:pointer}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--yel);outline-offset:2px}
+.res{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.top{padding:16px;color:#fff}.top.red{background:var(--red)}.top.yel{background:var(--yel)}.top.grn{background:var(--grn)}
+.top b{font:700 22px Georgia,serif;display:block}
+.body{padding:16px}
+.flag{padding:10px 0;border-top:1px solid var(--line)}.flag:first-child{border-top:0;padding-top:0}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:baseline}
+.dot.red{background:var(--red)}.dot.yel{background:var(--yel)}.dot.grn{background:var(--grn)}.dot.unk{background:var(--unk)}
+.src{color:var(--mute);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:14px}
+.week{margin-top:22px;padding:16px;border:1px dashed var(--line);border-radius:16px}
+.snap{width:100%;padding:16px;margin-bottom:10px;border:0;border-radius:12px;background:var(--grn);color:#fff;font:700 17px system-ui;cursor:pointer}
+.snap:disabled{opacity:.6}
+#st{margin:0 0 10px;min-height:20px}
+.note{font-size:13px;color:var(--mute);margin-top:26px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#13302a"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Label Check">
+</head>
+<body>
+<main>
+<h1>What's in this?</h1>
+<p class="mute">Paste the ingredients from a label. You'll see which ones are linked to cancer risk, and why.</p>
+<div class="seg" role="group" aria-label="Product type">
+<button id="bf" aria-pressed="true">Food</button><button id="bc" aria-pressed="false">Cosmetics</button>
+</div>
+<button class="snap" id="snap">Snap the label</button><input type="file" id="file" accept="image/*" capture="environment" hidden><div id="st" class="mute"></div>
+<textarea id="in" placeholder="Example: wheat flour, processed pork, salt, sodium nitrite (E250), palm oil"></textarea>
+<div class="row"><button class="go" id="check">Check ingredients</button><button class="ghost" id="ex">Try an example</button></div>
+<div id="out"></div>
+<div class="week" id="week"></div>
+<p class="note">Guidance only, not medical advice. "Linked to" means research found an association; risk depends on how much and how often. Ingredients we don't have data on show as unknown, which does not mean safe. Based on IARC classifications and EFSA/EU decisions. Starter list of about 30 items, not yet reviewed by a doctor or toxicologist.</p>
+</main>
+<script>
+var DB=[
+{n:"Processed meat",a:["processed meat","sausage","bacon","ham","salami","hot dog","corned beef","cured meat","luncheon"],l:"red",s:"both0",r:"Linked to higher bowel cancer risk with regular eating.",c:"IARC Group 1"},
+{n:"Formaldehyde",a:["formaldehyde","formalin"],l:"red",s:"cos",r:"Known to cause cancer in humans (breathing it in).",c:"IARC Group 1"},
+{n:"Nitrites / nitrates (E249-E252)",a:["nitrite","nitrate","e249","e250","e251","e252"],l:"yel",s:"food",r:"Can form compounds linked to cancer, mainly in cured meat.",c:"IARC Group 2A, under certain conditions"},
+{n:"Aspartame (E951)",a:["aspartame","e951"],l:"yel",s:"food",r:"Possibly carcinogenic; evidence is limited. Regulators still allow normal intakes.",c:"IARC Group 2B (2023)"},
+{n:"Titanium dioxide (E171)",a:["titanium dioxide","e171"],l:"yel",s:"both",r:"Safety concerns led the EU to ban it in food in 2022. Inhaled dust is possibly carcinogenic.",c:"IARC 2B; EFSA"},
+{n:"BHA (E320)",a:["bha","butylated hydroxyanisole","e320"],l:"yel",s:"both",r:"Possibly carcinogenic in humans.",c:"IARC Group 2B"},
+{n:"Potassium bromate (E924)",a:["potassium bromate","bromate","e924"],l:"yel",s:"food",r:"Possibly carcinogenic. Banned in the EU and UK.",c:"IARC Group 2B"},
+{n:"Erythrosine / Red 3 (E127)",a:["erythrosine","red 3","red no. 3","e127"],l:"yel",s:"both",r:"Linked to thyroid tumours in animal studies; the US moved to ban it.",c:"FDA 2025"},
+{n:"Refined palm oil",a:["palm oil","palm fat","palmolein"],l:"yel",s:"food",r:"Refining can create contaminants such as glycidyl esters (probably carcinogenic).",c:"IARC 2A (glycidol); EFSA"},
+{n:"Caramel colour",a:["caramel colour","caramel color","e150c","e150d"],l:"yel",s:"food",r:"Some types contain 4-MEI, possibly carcinogenic.",c:"IARC Group 2B"},
+{n:"Formaldehyde-releasing preservative",a:["dmdm hydantoin","quaternium-15","imidazolidinyl urea","diazolidinyl urea","bronopol"],l:"yel",s:"cos",r:"Slowly releases formaldehyde, a known carcinogen.",c:"IARC Group 1 (formaldehyde)"},
+{n:"Talc",a:["talc"],l:"yel",s:"cos",r:"Possibly carcinogenic with genital use; talc contaminated with asbestos is carcinogenic.",c:"IARC Group 2B"},
+{n:"Water",a:["water","aqua"],l:"grn",s:"both"},
+{n:"Salt",a:["salt","sodium chloride"],l:"grn",s:"food"},
+{n:"Wheat flour",a:["wheat flour","flour"],l:"grn",s:"food"},
+{n:"Sugar",a:["sugar","glucose","sucrose"],l:"grn",s:"food"},
+{n:"Rice / maize",a:["rice","maize","corn"],l:"grn",s:"food"},
+{n:"Vinegar / yeast",a:["vinegar","yeast"],l:"grn",s:"food"},
+{n:"Glycerin",a:["glycerin","glycerol"],l:"grn",s:"cos"},
+{n:"Shea butter",a:["shea","butyrospermum"],l:"grn",s:"cos"}
+];
+var mode="food",$=function(i){return document.getElementById(i)};
+function esc(t){return t.replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+function applies(e){return e.s==="both"||e.s==="both0"||(mode==="food"?e.s==="food":e.s==="cos")}
+function find(tok){var best=null;DB.forEach(function(e){if(!applies(e))return;if(e.a.some(function(a){return new RegExp("\\b"+a.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).test(tok)})){if(!best||(e.l==="red"&&best.l!=="red")||(e.l==="yel"&&best.l==="grn"))best=e}});return best}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||"[]");localStorage.setItem(k,JSON.stringify(v))}catch(x){return[]}}
+var last=null;
+function run(){
+var raw=$("in").value.trim();if(!raw){$("out").innerHTML='<p class="mute" style="margin-top:18px">Type or paste some ingredients first.</p>';return}
+var toks=raw.toLowerCase().split(/[,;\n]+/).map(function(t){return t.replace(/\s+/g," ").trim()}).filter(Boolean);
+var flags=[],oth=[],seen={};
+toks.forEach(function(t){var e=find(t);if(!e){oth.push({t:t,l:"unk"});return}
+if(e.l==="grn"){oth.push({t:t,l:"grn"});return}
+if(!seen[e.n]){seen[e.n]=1;flags.push(e)}});
+var lvl=flags.some(function(f){return f.l==="red"})?"red":flags.length?"yel":"grn";
+var msg={red:["Think twice","Contains something linked to higher cancer risk."],yel:["Fine sometimes","Contains items to keep occasional."],grn:["No concerns found","Nothing in our list was flagged."]}[lvl];
+var unk=oth.filter(function(o){return o.l==="unk"}).length;
+var h='<div class="res"><div class="top '+lvl+'"><b>'+msg[0]+'</b>'+msg[1]+'</div><div class="body">';
+if(flags.length){h+='<h2>Watch out for</h2>';flags.forEach(function(f){h+='<div class="flag"><span class="dot '+f.l+'"></span><b>'+f.n+'</b><br>'+f.r+'<div class="src">'+f.c+'</div></div>'})}
+if(oth.length){h+='<h2 style="margin-top:16px">Also contains</h2><div class="chips">'+oth.map(function(o){return'<span class="chip"><span class="dot '+o.l+'"></span>'+esc(o.t)+(o.l==="unk"?" (unknown)":"")+'</span>'}).join("")+'</div>'}
+if(unk)h+='<p class="mute" style="margin-top:12px">'+unk+' ingredient'+(unk>1?"s are":" is")+' not in our list yet. Unknown does not mean safe.</p>';
+h+='<div class="row"><button class="go" id="save">Save to my week</button></div></div></div>';
+$("out").innerHTML=h;last={d:Date.now(),f:flags.map(function(f){return f.n})};
+$("save").onclick=function(){var s=store("scans");s.push(last);store("scans",s);this.textContent="Saved";this.disabled=true;renderWeek()};
+$("out").scrollIntoView({behavior:"smooth"})}
+function renderWeek(){var s=store("scans"),cut=Date.now()-7*864e5,w=s.filter(function(x){return x.d>cut}),c={};
+w.forEach(function(x){x.f.forEach(function(n){c[n]=(c[n]||0)+1})});
+var h='<h2>Your week</h2>';
+if(!w.length)h+='<p class="mute">No saved scans yet. Save a result to start your weekly summary. It stays on this phone.</p>';
+else{h+='<p>'+w.length+' product'+(w.length>1?"s":"")+' saved in the last 7 days.</p>';var any=false;
+Object.keys(c).sort(function(a,b){return c[b]-c[a]}).forEach(function(n){any=true;h+='<p><b>'+n+'</b>: '+c[n]+' time'+(c[n]>1?"s":"")+(c[n]>=3?'. That is more often than health guidance suggests. Try keeping it occasional.':'.')+'</p>'});
+if(!any)h+='<p class="mute">Nothing flagged so far.</p>';
+h+='<button class="ghost" id="clr">Clear my week</button>'}
+$("week").innerHTML=h;if($("clr"))$("clr").onclick=function(){store("scans",[]);renderWeek()}}
+function setMode(m){mode=m;$("bf").setAttribute("aria-pressed",m==="food");$("bc").setAttribute("aria-pressed",m==="cos")}
+$("bf").onclick=function(){setMode("food")};$("bc").onclick=function(){setMode("cos")};
+$("check").onclick=run;
+$("ex").onclick=function(){setMode("food");$("in").value="wheat flour, processed pork, water, salt, sodium nitrite (E250), palm oil, spices, dextrose";run()};
+var TIP=" Move closer, keep the label flat and well lit, then try again, or type the ingredients above.";
+function loadImg(f){return new Promise(function(ok,no){var u=URL.createObjectURL(f),im=new Image();im.onload=function(){ok(im)};im.onerror=function(){no(new Error("img"))};im.src=u})}
+function prep(im){var k=Math.min(1,1800/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var x=c.getContext("2d");x.filter="grayscale(1) contrast(1.4)";x.drawImage(im,0,0,c.width,c.height);return c}
+async function viaBarcode(im){if(!("BarcodeDetector"in window))return null;
+try{var d=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e"]}),r=await d.detect(im);if(!r.length)return null;
+var host=mode==="food"?"world.openfoodfacts.org":"world.openbeautyfacts.org";
+var j=await (await fetch("https://"+host+"/api/v2/product/"+r[0].rawValue+".json?fields=product_name,ingredients_text")).json();
+if(j.product&&j.product.ingredients_text)return{t:j.product.ingredients_text,n:j.product.product_name||""}}catch(e){}return null}
+function pull(t){t=t.replace(/-\s*\n/g,"").replace(/\s*\n\s*/g," ").replace(/\s+/g," ");
+var m=t.match(/ingredients?\s*[:\-]?\s*(.+)/i);if(m)t=m[1];
+t=t.split(/(nutrition|nutritional|allergen|may contain|best before|store in|manufactured|net wt|storage)/i)[0];return t.trim()}
+async function snapRead(f){var st=$("st"),b=$("snap");b.disabled=true;st.textContent="Looking at your photo...";
+try{var im=await loadImg(f),hit=await viaBarcode(im);
+if(hit){$("in").value=hit.t;st.textContent="Found by barcode"+(hit.n?": "+hit.n:"")+". Check the text below, then tap Check ingredients if you edit it.";run();return}
+if(typeof Tesseract==="undefined"){st.textContent="Photo reading could not load. Check your internet and try again, or type the ingredients."; return}
+st.textContent="Reading the label (the first time can take a minute)...";
+var r=await Tesseract.recognize(prep(im),"eng",{logger:function(m){if(m.status==="recognizing text")st.textContent="Reading the label... "+Math.round(m.progress*100)+"%"}});
+var t=pull(r.data.text);
+if(t.length<8){st.textContent="Could not read an ingredient list."+TIP;return}
+$("in").value=t;st.textContent="Read from your photo. Fix any mistakes below, then tap Check ingredients if you edit it.";run()}
+catch(e){st.textContent="Could not read that photo."+TIP}
+finally{b.disabled=false;$("file").value=""}}
+$("snap").onclick=function(){$("file").click()};
+$("file").onchange=function(){if(this.files&&this.files[0])snapRead(this.files[0])};
+renderWeek();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+</script>
+</body>
+</html>
